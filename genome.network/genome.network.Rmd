@@ -1,0 +1,118 @@
+Network analysis
+========================================================
+
+How to analyse PE connection networks in R.
+
+```{r load packages}
+library("igraph")
+library("RColorBrewer")
+library("ggplot2")
+```
+
+```{r define color palette}
+gr<-colorRampPalette(c("green", "red"))
+palette(gr(100))
+```
+
+
+Read all data.
+
+```{r load data}
+PE<-read.delim("connections.txt", header =T)
+meta<-read.delim("metadata.txt", header= T)
+```
+
+Generate graph.
+
+```{r generate graph}
+PEg<-graph.data.frame(PE[,c(1,3,4)], directed = F)
+PEg
+```
+
+Sort the metadata to match the order of the graph.
+
+```{r sort meta}
+meta<-meta[match(V(PEg)$name,meta$Scaffold),]
+```
+
+Add attributes to `Vertices`.
+
+```{r add to vertrices}
+V(PEg)$label<- V(PEg)$name
+V(PEg)$label.cex <- .7
+V(PEg)$label.color <- "black"
+V(PEg)$label.font <- 2
+V(PEg)$frame.color<-"black"
+V(PEg)$size <- sqrt(meta$Length)/25 + 2
+V(PEg)$color <- (log(meta$Coverage)-min(log(meta$Coverage)))*(98/(max(log(meta$Coverage)-min(log(meta$Coverage)))))+1
+V(PEg)$length <- meta$Length
+V(PEg)$coverage <- meta$Coverage
+V(PEg)$degree <- degree(PEg)
+```
+
+Add attributes to `Edges`.
+
+```{r add to edges}
+E(PEg)$color <- "black"
+E(PEg)$width <- log(E(PEg)$connections)/2
+```
+
+## Usefull things to do with the graph
+
+### Clusters
+Overview of clusters in the network graph and their size.
+
+```{r clusters}
+PEgc<-clusters(PEg)
+PEgc
+```
+
+### Standard plot
+Plot the graph.
+
+```{r standard plot, fig.width=10, fig.height=10}
+layout1 <- layout.fruchterman.reingold(PEg)
+plot(PEg, layout=layout1)
+```
+
+### Find scaffolds with too many connections
+
+First add the number of connections each scaffold have to the metadata.
+```{r explore connections}
+meta<-cbind(meta, V(PEg)$degree)
+colnames(meta)[4] <- "Degree"
+```
+
+Spotting repeats by looking at connections versus repeats.
+```{r plot degree}
+ggplot(meta, aes(x = Coverage, y = Degree)) +
+  geom_point(size = 2)
+```
+
+Looking in detail at scaffolds with repeats integrated in ends. Normal scaffolds should have max 2 connections.
+```{r plot degree bad}
+ggplot(meta, aes(x = Coverage, y = Degree)) +
+  geom_text(label = meta$Scaffold) +
+  xlim(0, 400) +
+  ylim(0,10)
+```
+
+Printing the scaffolds that needs to be looked at.
+```{r report bad scaffolds}
+subset(meta, Coverage < 400 & Degree > 2)
+```
+
+### Subset the graph
+
+Using attributes to subset the graph.
+```{r subset}
+bad.vs<-V(PEg)[V(PEg)$coverage > 400] 
+PEgs<-delete.vertices(PEg, bad.vs)
+```
+
+Plot the subset.
+
+```{r plot subset, fig.width=10, fig.height=10}
+layout1 <- layout.fruchterman.reingold(PEgs)
+plot(PEgs, layout=layout1)
+```
