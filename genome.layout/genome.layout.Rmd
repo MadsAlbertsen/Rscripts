@@ -1,0 +1,39 @@
+Genome reconstruction in R
+========================================================
+
+The purpose of this small guide is to create a reproducible workflow for generating layouts of genomes.
+
+### Load needed packages
+```{r load_packages}
+library(Biostrings)
+```
+
+### Load original scaffolds
+The original scaffolds can be loaded directly as a fasta file.
+```{r load_org_scaffolds}
+org <- readDNAStringSet("scaffolds.fa", format = "fasta")
+```
+
+Access a specific sequence.
+```{r access_sequences}
+seq1 <- org[1]
+seq1
+```
+
+Reverse complement.
+```{r reverse_complement}
+seq1_rc <- reverseComplement(seq1)
+seq1_rc
+```
+
+Join two sequences.
+```{r join}
+seqNew <- xscat(seq1, seq1_rc)
+seqNew
+```
+
+Extract a subset of the nucleotides from a given sequence.
+```{r split}
+seqNew_sub <- substr(seqNew, start=1, stop=15)
+seqNew_sub
+```
