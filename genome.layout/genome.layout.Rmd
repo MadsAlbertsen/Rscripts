@@ -34,6 +34,19 @@ seqNew
 
 Extract a subset of the nucleotides from a given sequence.
 ```{r split}
-seqNew_sub <- substr(seqNew, start=1, stop=15)
+seqNew_sub <- subseq(seqNew, start=1, end=15)
 seqNew_sub
 ```
+
+Join several sequences in a new object.
+```{r create object}
+new_list <- c(seqNew, seq1_rc, seq1)
+names(new_list) <- c("seqA", "seqB", "seqC")
+new_list
+```
+
+Write the sequences to a file.
+```{r write}
+writeXStringSet(new_list, "out.fa")
+```
+
