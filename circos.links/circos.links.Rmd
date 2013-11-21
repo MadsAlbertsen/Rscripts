@@ -1,0 +1,60 @@
+Overview of circos connections
+========================================================
+
+Load needed packages.
+```{r load_packages}
+library(ggplot2)
+```
+
+Define a function to convert the files to ggplot2 format.
+```{r format_function}
+sub <- function(x){ 
+  sub1 <- gsub(","," ", x)
+  sub2 <- gsub("="," ", sub1)
+  writeLines(sub2, "temp.txt")
+  temp <- read.delim("temp.txt", header = F, sep = " ")
+  c1 <- cbind(temp[,1],round((temp[,2]+temp[,3])/2,0),temp[,8])
+  c2 <- cbind(temp[,4],round((temp[,5]+temp[,6])/2,0),temp[,9])
+  out <- as.data.frame(rbind(c1,c2))
+  colnames(out) <- c("Contig", "Position", "Linkdensity")
+  return(out)
+}
+```
+
+Load all links and coverage.
+```{r Load_data}
+e <- readLines("circos.ends.txt")
+s <- readLines("circos.scontigs.wl.txt")
+d <- readLines("circos.dcontigs.txt")
+
+cov <- read.delim(file="circos.coverage.txt", header = F)
+colnames(cov) <- c("Contig", "Start", "End", "Coverage")
+```
+
+Combine all the formated data.
+```{r combine}
+ends<-sub(e)
+same<-sub(s)
+diff<-sub(d)
+
+links <- rbind.data.frame(ends,same,diff)
+type <- c(rep("Ends",nrow(ends)),rep("Same",nrow(same)),rep("Different",nrow(diff)))
+links <- cbind.data.frame(links, type)
+```
+
+Plot links.
+```{r plot_links}
+ggplot(links, aes(x = Position, color = type)) +
+  geom_bar(binwidth = 1000) +
+  facet_wrap(~Contig)
+```
+
+Plot coverage.
+```{r plot_coverage, warning=FALSE, message=FALSE}
+ggplot(cov, aes(x = Start, y = Coverage)) +
+  stat_smooth() +
+  geom_line() +
+  facet_wrap(~Contig) +
+  ylim(0, 5500)
+```
+
