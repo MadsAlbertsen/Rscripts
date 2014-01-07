@@ -13,6 +13,7 @@ library("ggplot2")
 library("igraph")
 library("Biostrings")
 library("knitr")
+options(scipen = 8)
 ```
 
 ## Load all data
