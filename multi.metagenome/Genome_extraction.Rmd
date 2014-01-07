@@ -1,0 +1,271 @@
+Genome extraction
+=======================================
+
+## Load data
+
+```{r Loaddata, message=FALSE, warning=FALSE, results='hide'}
+knit('Load_data.Rmd', tangle=TRUE)
+source(file="Load_data.R")
+```
+
+## Identify a geome of interest
+Here we target the Actinobacteria.
+
+```{r S1S2_gc_phylum_plot, fig.height=8, fig.width=10, warning=F}
+ds <- subset(d, length > 5000)
+ggplot(ds, aes(x = S1, y = S2, size = length, color = phylum)) + 
+  scale_x_log10() + 
+  scale_y_log10() + 
+  geom_point(alpha=0.1, color = 'black') +
+  geom_point(data=subset(ds, phylum != "NA"), shape = 1, alpha = 0.7) +
+  scale_size_area(name= "Scaffold length", max_size=20) +
+  guides(colour = guide_legend(override.aes = list(alpha = 1, size = 5, shape = 19)))
+```
+
+## Initial extraction
+
+We first use the scaffolds with essential genes as a rough guide for selection of a subset of scaffolds that include the target genome. The non-target scaffolds will be removed in the next step.
+
+The locater function is used to interactively define a subspace on the plot. As locater is interactive, I have added the points maunally to allow recration of the bin. The area defined by the selected points is extracted using the ahull function.
+```{r zoomA, fig.height=8, fig.width=8, warning=F}
+x <- "S1"
+y <- "S2"
+dt <- d
+et <- e
+
+plot(dt[,x], 
+     dt[,y],      
+     cex = sqrt(dt$length)/100, 
+     pch=20, 
+     log = "xy",
+     col=rgb(0,0,0,0.1), 
+     xlim = c(10,100),  
+     ylim = c(5,100), 
+     xlab = x,
+     ylab = y
+     )
+
+palette(phylum.col)
+points(dt[,x], 
+       dt[,y],
+       cex = sqrt(dt$length)/100*0.7,
+       col=dt$phylum,
+       lwd=1
+       )
+
+#def<-locator(100, type="p", pch=20)
+#paste(round(def$x,2), collapse=", ")
+#paste(round(def$y,2), collapse=", ")
+
+def<-{}
+def$x <- c(21.34, 22.63, 26.44, 29.58, 28.54, 25.12, 21.18)
+def$y <- c(9.8, 12.15, 12.92, 11.63, 9.84, 8.36, 8.36)
+
+sel <- ahull(def, alpha=100000)  
+
+plot(sel, col="black",add=T)
+```
+
+## Extract scaffolds and essential genes
+
+Extract all scaffolds and information on essential genes within the defined subspace using the `extract` function.
+
+```{r extractA}
+dA<-extract(dt, sel, dt[,x], dt[,y])
+eA<-extract(et, sel, et[,x], et[,y])
+```
+We store the extracted scaffolds in the variable `dA` and the extracted essential genes in `eA`. `dA` simply stands for `extraction A` of `dataframe d`.
+
+## Calculate statistics on the extracted scaffolds
+Then we use the `calc.genome.stats` function to see the basic statistics of the extracted scaffolds.
+
+```{r statsA}
+calc.genome.stats(dA, eA)
+```
+
+The stats looks decent. However, from the first plot we can see that there is contamination in the extraction. For complete Bacterial genomes we expect roughly 100 unique essential genes and 30 for Archaea.
+
+```{r  duplicates_A}
+dubA<-eA[which(duplicated(eA$hmm.id) | duplicated(eA$hmm.id, fromLast=TRUE)),] 
+head(dubA[order(dubA$hmm.id),c(1,3)])
+```
+
+## PCA on the selected scaffolds
+
+```{r PCA}
+rda <- rda(kmer[dA$scaffold,2:ncol(kmer)])
+scores <- scores(rda,choices=1:3)$sites
+
+dB<-cbind(dA,scores)
+eB<-merge(eA,dB[,c("scaffold","PC1","PC2","PC3")],all.x=T,by="scaffold")
+```
+
+We use the pairs function to plot the first 3 components, GC and coverage. 
+```{r PCA_pairs_B, fig.width=10, fig.height=10}
+palette(gc.trans)
+pairs(dB[,c("PC1","PC2","PC3", "gc", "S1", "S2", "Seed")], upper.panel=NULL, col = dB$gc-min(d$gc), cex = sqrt(dB$length)/75, pch=20)
+```
+
+PC1 and PC2 seem to be nice for further subsetting.
+```{r zoomB, fig.height=8, fig.width=8, warning=F}
+x <- "PC1"
+y <- "PC2"
+dt <- dB
+et <- eB
+
+plot(dt[,x], 
+     dt[,y],      
+     cex = sqrt(dt$length)/50, 
+     pch=20, 
+     col=rgb(0,0,0,0.2),  
+     xlab = x, 
+     ylab = y
+     )
+
+palette(phylum.col)
+points(dt[,x], 
+       dt[,y],
+       cex = sqrt(dt$length)/50*0.7,
+       col=dt$phylum,
+       lwd=2
+       )
+
+#def<-locator(100, type="p", pch=20)
+#paste(round(def$x,3), collapse=", ")
+#paste(round(def$y,3), collapse=", ")
+
+def<-{}
+def$x <- c(-0.064, -0.053, -0.027, -0.022, -0.036, -0.063, -0.066)
+def$y <- c(-0.065, -0.042, -0.055, -0.077, -0.111, -0.115, -0.093)
+
+sel <- ahull(def, alpha=100000)  
+plot(sel, col="black",add=T)
+```
+
+Extracting the scaffolds.
+```{r extractC}
+dC<-extract(dt, sel, dt[,x], dt[,y])
+eC<-extract(et, sel, et[,x], et[,y])
+```
+
+Looking at the stats.
+```{r statsC}
+calc.genome.stats(dC, eC)
+```
+
+```{r  duplicates_C}
+dubC<-eC[which(duplicated(eC$hmm.id) | duplicated(eC$hmm.id, fromLast=TRUE)),] 
+head(dubC[order(dubC$hmm.id),c(1,3)])
+```
+
+We use the pairs function to plot the first 3 components, GC and coverage. 
+```{r PCA_pairs_C, fig.width=10, fig.height=10}
+palette(gc.trans)
+pairs(dC[,c("PC1","PC2","PC3", "gc", "S1", "S2", "Seed")], upper.panel=NULL, col = dC$gc-min(d$gc), cex = sqrt(dC$length)/75, pch=20)
+```
+
+PC3 and GC seem to be nice for further subsetting.
+```{r zoomC, fig.height=8, fig.width=8, warning=F}
+x <- "gc"
+y <- "PC3"
+dt <- dC
+et <- eC
+
+plot(dt[,x], 
+     dt[,y],      
+     cex = sqrt(dt$length)/50, 
+     pch=20, 
+     col=rgb(0,0,0,0.2),  
+     xlab = x, 
+     ylab = y
+     )
+
+palette(phylum.col)
+points(dt[,x], 
+       dt[,y],
+       cex = sqrt(dt$length)/50*0.7,
+       col=dt$phylum,
+       lwd=2
+       )
+
+#def<-locator(100, type="p", pch=20)
+#paste(round(def$x,3), collapse=", ")
+#paste(round(def$y,3), collapse=", ")
+
+def<-{}
+def$x <- c(66.602, 68.568, 70.451, 71.425, 71.434, 69.817, 67.577, 66.319)
+def$y <- c(0.009, 0.044, 0.065, 0.069, 0.047, 0.009, -0.006, -0.005)
+
+sel <- ahull(def, alpha=100000)  
+plot(sel, col="black",add=T)
+```
+
+Extracting the scaffolds.
+```{r extractD}
+dD<-extract(dt, sel, dt[,x], dt[,y])
+eD<-extract(et, sel, et[,x], et[,y])
+```
+
+Looking at the stats.
+```{r statsD}
+calc.genome.stats(dD, eD)
+```
+
+Looking at duplicated genes. Only 1 found - and that gene is known to often be found in multiple copies (at least when using the hmm models).
+```{r  duplicates_D}
+dubD<-eD[which(duplicated(eD$hmm.id) | duplicated(eD$hmm.id, fromLast=TRUE)),] 
+head(dubD[order(dubD$hmm.id),c(1,3)])
+```
+
+## Using PE-connections
+
+We can use the paried-end connections to include repeats and scaffolds missed in the initial extractions as well as obvious contamination. First I simply look which scaffolds are connected in scaffolds we extracted. 
+```{r network_D}
+palette(gc.trans)
+sub.id<-as.numeric(as.character(na.omit(dD$vertex.id)))
+subg <- induced.subgraph(g, sub.id)
+plot(subg, layout=layout.fruchterman.reingold)
+```
+
+However, the big advantage is that we can use the paired-end connection network to include repeats and small scaffolds that deviate in their coverage.
+
+```{r network_complete_D}
+sub.clusters<-as.numeric(as.character(unique(na.omit(dD$cluster))))
+sub.dD<-d[d$cluster %in% sub.clusters,]
+
+sub.id<-as.numeric(as.character(na.omit(sub.dD$vertex.id)))
+subg <- induced.subgraph(g, sub.id)
+
+palette(gc.trans)
+plot(subg, layout=layout.fruchterman.reingold)
+```
+
+It dosn't look like much in this example. But we do get a few scaffolds pulled in.
+```{r subsetE}
+scaffold.id <- unique(c(dD$scaffold, sub.dD$scaffold))
+dE <- d[scaffold.id,]
+eE <- e[e$scaffold %in% dD$scaffold,]
+```
+
+Looking at the stats.
+```{r statsE}
+calc.genome.stats(dE, eE)
+```
+
+## Final genome bin
+
+Looking at the scaffolds.
+```{r final_plot, fig.height=8, fig.width=10, warning=F}
+ggplot(dE, aes(x = S1, y = S2, size = length, color = phylum)) + 
+  scale_x_log10() + 
+  scale_y_log10() + 
+  geom_point(alpha=0.2, color = 'black') +
+  geom_point(data=subset(dE, phylum != "NA"), shape = 1, alpha = 1) +
+  scale_size_area(name= "Scaffold length", max_size=20) +
+  guides(colour = guide_legend(override.aes = list(alpha = 1, size = 5, shape = 19)))
+```
+
+Write the scaffolds to a file.
+```{r write_sequences}
+writeXStringSet(assembly[dE$scaffold], file = "Actinobacteria1.fa")
+```
