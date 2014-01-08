@@ -21,10 +21,8 @@ options(scipen = 8)
 The data is loaded and a few of the data columns are renamed.
 
 ```{r Load_data}
-S1 <- read.csv("data/Holmes_cycle1.csv", header = T)               
-S2 <- read.csv("data/Holmes_cycle3.csv", header = T)
-S3 <- read.csv("data/Holmes_seed.csv", header = T)
-S4 <- read.csv("data/AAV_5_10.csv", header = T)
+S1 <- read.csv("data/S1.csv", header = T)               
+S2 <- read.csv("data/S2.csv", header = T)
 gc <- read.delim("data/assembly.gc.tab", header = T)
 kmer <- read.delim("data/assembly.kmer.tab", header = T)
 ess <- read.table("data/assembly.orfs.hmm.id.txt", header = F)
@@ -45,8 +43,8 @@ colnames(ess.tax) = c("scaffold","orf","phylum")
 
 Merge coverage, gc and length data on all scaffolds into a single data frame `d`.
 ```{r Merge_d1}
-d <- cbind.data.frame(gc$contig, S1$Reference.length, gc$gc, S1$Average.coverage, S2$Average.coverage, S3$Average.coverage, S4$Average.coverage)
-colnames(d) = c("scaffold", "length", "gc", "S1", "S2", "Seed", "AAV")
+d <- cbind.data.frame(gc$contig, S1$Reference.length, gc$gc, S1$Average.coverage, S2$Average.coverage)
+colnames(d) = c("scaffold", "length", "gc", "S1", "S2")
 ```
 
 Add consensus taxonomic assignments from essential single copy genes to `d`.
