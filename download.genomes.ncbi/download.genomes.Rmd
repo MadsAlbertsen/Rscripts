@@ -1,0 +1,36 @@
+Retrive bulk genomes
+========================================================
+
+```{r load packages}
+library(ggplot2)
+library(RCurl) 
+```
+
+Download all available genome reports. This contains information on the completeness of the genomes, their phyla and accession number.
+```{r download summary}
+url <- 'ftp://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/prokaryotes.txt'
+y <- getURL(url)
+writeLines(y, "prokaryotes.txt")
+prokaryotes <- read.delim("prokaryotes.txt", header = T)
+```
+
+Subset to all archea
+```{r subset}
+c <- subset(prokaryotes, Status == "Complete" & Chromosomes.RefSeq != "-")
+archaea <- grep("archae", c$Group)
+a <- c[archaea,]
+```
+
+Plot overview.
+```{r plot}
+ggplot(a, aes(Group)) +
+  geom_bar() +
+  coord_flip()
+```
+
+Write accession numbers to a file.
+```{r writenames}
+t<-strsplit(as.character(a$Chromosomes.RefSeq), ",")
+a.names <- sapply(t, "[[", 1)
+write(a.names, file="archaea.accession.txt")
+```
