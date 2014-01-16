@@ -30,7 +30,7 @@ ggplot_locator <- function(p){
   if (pi$panel$x_scales[[1]]$trans$name == "log-10") d[,1] <- 10^(d[,1])
   if (pi$panel$y_scales[[1]]$trans$name == "log-10") d[,2] <- 10^(d[,2])
   show(d)
-  return(list(p = d, data = pi$plot$data))
+  return(d)
 }
 
 
@@ -98,14 +98,10 @@ ggplot_locator <- function(p){
 
 #### Extract from ahull ####
 
-extract <- function(data=NULL, sel, xname=NULL, yname=NULL){
-  if (!is.null(sel$p) & !is.null(sel$data)){  # Check if sel is output from locator and contains all data
-    if (!is.null(data)) {data <- data
-    } else {data <- sel$data}
-    sel <-sel$p
-    xname <- names(sel[1])
-    yname <- names(sel[2])
-  }
+extract <- function(data, sel){
+  library("alphahull")
+  xname <- names(sel[1])
+  yname <- names(sel[2])
   xr <- range(sel[xname])
   yr <- range(sel[yname])
   sel.hull <- ahull(sel, alpha=100000)
