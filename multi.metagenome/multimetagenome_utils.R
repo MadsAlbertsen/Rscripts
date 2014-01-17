@@ -1,10 +1,6 @@
-#### Locator Function for ggplot v3####
+#### Locator Function for ggplot v3 #############
 
 ggplot_locator <- function(p){
-  # Load Libraries
-  library(ggplot2)
-  library(grid)
-  
   # Generate x/y data and define variables
   pi <- ggplot_build(p)
   x <- unlist(lapply(pi$data, function(l){l$x}))
@@ -29,10 +25,31 @@ ggplot_locator <- function(p){
   # Data Output
   if (pi$panel$x_scales[[1]]$trans$name == "log-10") d[,1] <- 10^(d[,1])
   if (pi$panel$y_scales[[1]]$trans$name == "log-10") d[,2] <- 10^(d[,2])
-  show(d)
+  show(paste(colnames(d)[1]," = ",list(round(d[,1],4))))
+  show(paste(colnames(d)[2]," = ",list(round(d[,2],4))))
   return(d)
 }
 
+#### Extract from ahull #########################
+
+extract <- function(data, sel){
+  library("alphahull")
+  xname <- names(sel[1])
+  yname <- names(sel[2])
+  xr <- range(sel[xname])
+  yr <- range(sel[yname])
+  sel.hull <- ahull(sel, alpha=100000)
+  ds <- subset(data, data[xname] > min(xr) & data[xname] < max(xr) & data[yname] > min(yr) & data[yname] < max(yr))
+  hull <- apply(ds[c(xname, yname)],1,function(x){inahull(ahull.obj=sel.hull, p=x)})
+  return(ds[hull, ])
+}
+
+##### Calculate genome stats ####################
+
+genome.stats <- matrix(NA, nrow=0, ncol=9) 
+colnames(genome.stats) <- c("total.length", "# scaffolds", "mean.length", "max.length", "gc", "Coverage1", "Coverage2", "tot.ess", "uni.ess")
+
+calc.genome.stats <- function(x,y) matrix(c(sum(x$length), nrow(x), round(mean(x$length),1), max(x$length), round(sum((x$gc*x$length))/sum(x$length),1), round(sum((x[,4]*x$length))/sum(x$length),1), round(sum((x[,5]*x$length))/sum(x$length),1), nrow(y),length(unique(y$hmm.id))),  dimnames = list(colnames(genome.stats),""))
 
 #### Simulated Test Data
 
@@ -95,17 +112,3 @@ ggplot_locator <- function(p){
 #   scale_x_log10() +
 #   scale_y_log10()
 # p
-
-#### Extract from ahull ####
-
-extract <- function(data, sel){
-  library("alphahull")
-  xname <- names(sel[1])
-  yname <- names(sel[2])
-  xr <- range(sel[xname])
-  yr <- range(sel[yname])
-  sel.hull <- ahull(sel, alpha=100000)
-  ds <- subset(data, data[xname] > min(xr) & data[xname] < max(xr) & data[yname] > min(yr) & data[yname] < max(yr))
-  hull <- apply(ds[c(xname, yname)],1,function(x){inahull(ahull.obj=sel.hull, p=x)})
-  return(ds[hull, ])
-}

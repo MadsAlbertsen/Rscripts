@@ -13,7 +13,9 @@ library("ggplot2")
 library("igraph")
 library("Biostrings")
 library("knitr")
+library("grid")
 options(scipen = 8)
+source("Multimetagenome_utils.R")
 ```
 
 ## Load all data
@@ -106,7 +108,6 @@ Store the entire network graph of paired-end connections in the object `g`.
 ```{r Network_generation}
 snetwork <- subset(network, connections > 10)
 g<-graph.data.frame(snetwork[,c(1,3,4)], directed = F)
-g
 ```
 
 Add attributes to vertrices (nodes) and edges.
@@ -150,47 +151,10 @@ e <- merge(ess, d, by = "scaffold", all.x = T)
 
 We now have 2 data frames: `d` which contains all data in the individual **scaffolds**, `e` which contains data on essential genes. We work with 2 seperate data frames as each scaffold can contain multiple essential genes.
 
-The final information stored in `d` is:
-
-```{r d_variables}
-colnames(d)
-```
-
 ## Define a few functions for later use
-
-To make the subsequent binning more easy we define a funtion to calculate basic statistics on a set of scaffolds and call it `calc.genome.stats`.
-
-```{r Function - calc.genome.stats}
-genome.stats <- matrix(NA, nrow=0, ncol=9) 
-colnames(genome.stats) <- c("total.length", "# scaffolds", "mean.length", "max.length", "gc", "S1", "S2", "tot.ess", "uni.ess")
-
-calc.genome.stats <- function(x,y) matrix(c(sum(x$length), nrow(x), round(mean(x$length),1), max(x$length), round(sum((x$gc*x$length))/sum(x$length),1), round(sum((x$S1*x$length))/sum(x$length),1), round(sum((x$S2*x$length))/sum(x$length),1), nrow(y),length(unique(y$hmm.id))),  dimnames = list(colnames(genome.stats),""))
-```
-
-We also define a funtion to extract a subset of scaffolds, called `extract`.
-
-```{r Function_extract }
-extract <- function(data,selection,variable1,variable2){
-  out <- {}
-  for (i in 1:nrow(data)) { 
-    if (inahull(selection, c(variable1[i],variable2[i]))) out <- rbind(out,data[i,])
-    }  
-  return(out)
-}
-```
 
 A few custom color palettes that we are going to use later.
 ```{r Color_palettes}
 rgb.p<- colorRampPalette(c('red','green','blue'))
 gc.trans<-adjustcolor(rgb.p(max(d$gc)-min(d$gc)),alpha.f=0.2)
-
-gg_color_hue <- function(n) {
-  hues = seq(15, 375, length=n+1)
-  hcl(h=hues, l=65, c=100)[1:n]
-}
-phylum.col = gg_color_hue(length(levels(d$phylum)))
-```
-
-```{r Make_R_simple, message=FALSE}
-knit('Load_data.Rmd', tangle=TRUE)
 ```
