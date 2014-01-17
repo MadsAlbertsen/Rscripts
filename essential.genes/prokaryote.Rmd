@@ -1,0 +1,114 @@
+Prokaryote essential genes
+==================================
+## Load packages
+
+```{r load packages}
+library(ggplot2)
+library(RCurl) 
+```
+
+## Identify genomes of interest for download
+
+Download all available genome reports. This contains information on the completeness of the genomes, their phyla and accession number.
+```{r download_summary}
+url <- 'ftp://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/prokaryotes.txt'
+y <- getURL(url)
+writeLines(y, "prokaryotes.txt")
+prokaryotes <- read.delim("prokaryotes.txt", header = T)
+```
+
+Subset to all complete prokaryotes. 
+```{r subset}
+c <- subset(prokaryotes, Status == "Complete" & Chromosomes.RefSeq != "-")
+```
+
+Take a single genome per species.
+```{r single_species}
+Genus <- sapply(strsplit(as.character(c$X.Organism.Name), " "), "[[", 1)
+Species <- sapply(strsplit(as.character(c$X.Organism.Name), " "), "[[", 2)
+ShortName <- paste(Genus, Species)
+c <- cbind.data.frame(c, ShortName, Species, Genus)
+u <- c[!duplicated(c$ShortName), ]
+```
+
+## Overview plots
+
+Plot overview of the Phyla.
+```{r plot}
+ggplot(u, aes(Group)) +
+  geom_bar() +
+  coord_flip()
+```
+
+Export the accession numbers and download the associated genomes using the small [perl script](https://github.com/MadsAlbertsen/miscperlscripts/blob/master/download.ncbi.using.acession.list.pl).
+
+```{r writenames}
+t<-strsplit(as.character(u$Chromosomes.RefSeq), ",")
+u.names <- sapply(t, "[[", 1)
+write(u.names, file="prokaryote.accession.txt")
+
+u.names.clean <- sapply(strsplit(u.names, "\\."), "[[", 1)
+u.genome.id <- cbind.data.frame(u.names.clean, u$Group, u$SubGroup, u$Genus, u$Species, u$X.Organism.Name, u$Size..Mb., u$GC.)
+colnames(u.genome.id) <- c("Accession", "Phylum", "Class", "Genus", "Species", "Strain", "Length", "GC")
+```
+
+## Predict essential genes
+First proteins are predicted using prodigal and then essential genes are identified using the "109 Bacterial Essential HMMs" to estimate the number of essential single copy genes. Instead of downloading all 1000+ genomes you can download the result file from here:
+
+```{r download_ess}
+url <- 'https://dl.dropbox.com/s/ejnozuia3xwsdkl/prokaryote.ess'
+z <- getURL(url, ssl.verifypeer = FALSE)
+writeLines(y, "prokaryotes.ess.txt")
+```
+
+The file needs to be slightly formatted.
+```{r read_essential}
+elines <- readLines("prokaryote.ess.txt")
+elines <- sub("_", "\t",elines)
+elines <- sub(" ", "_",elines)
+elines <- sub(" ", "\t",elines)
+writeLines(elines, con = "elines.txt")
+e <- read.table("elines.txt", header = F, sep = "\t")
+e <- cbind(e, rep(1, nrow(e)))
+colnames(e) <- c("Accession", "Orf", "HMM", "Count")
+```
+
+## Aggregate and sort the data
+
+```{r essential_number}
+ea <- aggregate(Count ~ Accession + HMM , sum, data = e)
+
+cHMM <- aggregate(Count ~ HMM, sum, data = ea)
+cHMM <- cHMM[ order(cHMM$Count, decreasing=T) ,]
+ea$HMM <- factor(ea$HMM, levels = cHMM$HMM)
+
+cAcc <- aggregate(Count ~ Accession, sum, data = ea)
+cAcc <- cAcc[ order(cAcc$Count, decreasing=T) ,]
+ea$Accession <- factor(ea$Accession, levels = cAcc$Accession)
+
+eaF <- merge(ea, u.genome.id, by = "Accession", all.x = T, all.y = F)
+eaFp <- aggregate(Count ~ Phylum + HMM, mean, data = eaF)
+
+cPhylum <- aggregate(Count ~ Phylum, sum, data = eaF[!duplicated(eaF$Accession),])
+cPhylum <- cPhylum[ order(cPhylum$Count, decreasing=T) ,]
+eaFp$Phylum <- factor(eaFp$Phylum, levels = cPhylum$Phylum)
+phylum.label <- paste(cPhylum$Phylum, " (", cPhylum$Count, ")", sep = "")
+```
+
+## Phylum level overview
+
+```{r plot_hmm_all_phylum}
+ggplot(eaFp, aes(x= Phylum, y = HMM, fill = Count)) + 
+  geom_tile() +
+  scale_x_discrete(labels=phylum.label) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+## All genomes within a specific Phylum
+
+Looking at Thaumarchaeota.
+```{r plot_thaum_ess}
+ggplot(subset(eaF, Phylum == "Thaumarchaeota"), aes(x= Accession, y = HMM, fill = Count)) + 
+  geom_tile() + 
+  facet_grid(~Phylum)
+```
