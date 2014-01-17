@@ -15,7 +15,7 @@ library("Biostrings")
 library("knitr")
 library("grid")
 options(scipen = 8)
-source("Multimetagenome_utils.R")
+source("multimetagenome_utils.R")
 ```
 
 ## Load all data
