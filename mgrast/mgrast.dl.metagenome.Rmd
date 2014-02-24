@@ -1,0 +1,139 @@
+Download MG-RAST metagenome data
+========================================================
+
+## Load packages
+
+```{r libraries}
+library("reshape2")
+```
+
+## Specify a metagenome
+```{r metagenome}
+mg <- "4463936.3"
+```
+
+# Download data
+
+## Download predicted proteins
+
+```{r dl proteins}
+paste("http://api.metagenomics.anl.gov/1/download/mgm",mg,"?file=350.1", sep="")
+```
+
+## Download cluster information
+
+```{r cluster}
+paste("http://api.metagenomics.anl.gov/1/download/mgm",mg,"?file=550.4", sep="")
+```
+
+## Download protein annotation information
+
+```{r annotation}
+paste("http://api.metagenomics.anl.gov/1/download/mgm",mg,"?file=650.3", sep="")
+```
+
+## Download ontology information
+
+```{r ontology}
+paste("http://api.metagenomics.anl.gov/1/download/mgm",mg,"?file=650.2", sep="")
+```
+
+# Read data
+
+## Protein identifiers
+
+```{r protein id}
+p <- readLines(con="350.genecalling.coding.faa")
+pid <- as.data.frame(grep(">", p, value = T))
+colnames(pid) <- "pid"
+pid$pid <- as.character(pid$pid)
+pid[1:2,]
+
+pid <- as.data.frame(sub(">", "", pid$pid))
+colnames(pid) <- "pid"
+rm(p)
+```
+
+## Cluster identifiers
+
+```{r cluster id}
+c <- read.delim("550.cluster.aa90.mapping", header = F)
+colnames(c) <- c("cid", "seed", "add", "procent")
+
+c2 <- cbind.data.frame(c$cid,paste(c$seed, c$add, sep = ","))
+colnames(c2) <- c("cid","pid")
+
+myformat <- function(x){
+  t2 <-strsplit(as.character(x[2]), ",")
+  out <- cbind(x[1],as.data.frame(t2))
+  colnames(out) <- c("cid","pid")
+  return(out)
+}
+
+cid.list <- apply(c2, 1, myformat)
+cid <- melt(cid.list, id.vars=c("cid","pid"))
+cid <- cid[,1:2]
+rm(cid.list)
+rm(c)
+rm(c2)
+```
+
+## Merge cluster id with protein id
+
+```{r merge pid and cid}
+pc <- merge(x = pid, y = cid, by = "pid", all.x = T)
+
+pc$pid <- as.character(pc$pid)
+pc$cid <- as.character(pc$cid)
+
+myreplace <- function(x){
+  if (is.na(x[2])){
+    x[2] <- x[1]
+  }
+  return(x)
+}
+
+pc <- as.data.frame(t(apply(pc, 1, myreplace)))
+colnames(pc) <- c("pid", "id")
+```
+
+## Read ontology data 
+
+```{r read ontology data}
+o <- read.delim("650.superblat.expand.ontology", header = F)
+colnames(o) <- c("md5","ps", "sim","aln","eval", "annotation", "oid", "db")
+
+o <- subset(o, db == "Subsystem" | db == "COG")
+```
+
+## Read protein data
+
+```{r read protein data}
+p <- read.delim("650.superblat.expand.protein", header = F)
+colnames(p) <- c("md5","ps", "sim","aln","eval", "annotation", "species", "db", "extra")
+
+p <- subset(p, db == "RefSeq" | db == "SEED")
+```
+
+## Export annotations
+
+```{r export annotations}
+e <- subset(p, db == "RefSeq" & eval < 1e-5)
+edp <- e[!duplicated(e$ps),]
+
+export <- merge(x = pc, y = edp[,c("ps", "annotation","species")], by.x = "id", by.y = "ps", all.x = T)
+
+export.header <- paste(">",export$pid," ",export$annotation, " [", export$species,"]", sep = "")
+
+write.table(export.header, file = "header.txt", row.names = F , col.names=F, quote=F)
+```
+
+## Typical workflow
+
+You have a list of identifiers.
+```{r workflow}
+
+
+
+```
+

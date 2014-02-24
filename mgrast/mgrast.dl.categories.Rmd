@@ -1,0 +1,39 @@
+Download categorial data from MG-RAST
+========================================================
+
+```{r libraries}
+library("plyr")
+library("rjson")
+```
+
+## COG
+
+```{r cog}
+raw.cog <- readLines(con = "http://api.metagenomics.anl.gov/1/m5nr/ontology?source=COG")
+list.cog <- fromJSON(raw.cog)
+cog <- do.call(rbind.data.frame, list.cog$data)
+```
+
+## Subsystems
+
+```{r subsystems}
+raw.ss <- readLines(con = "http://api.metagenomics.anl.gov/1/m5nr/ontology?source=Subsystems")
+list.ss <- fromJSON(raw.ss)
+ss <- rbind.fill(lapply(list.ss$data, as.data.frame))
+```
+
+## KO
+
+```{r ko}
+raw.ko <- readLines(con = "http://api.metagenomics.anl.gov/1/m5nr/ontology?source=KO")
+list.ko <- fromJSON(raw.ko)
+ko <- rbind.fill(lapply(list.ko$data, as.data.frame))
+```
+
+## NOG
+
+```{r nog}
+raw.nog <- readLines(con = "http://api.metagenomics.anl.gov/1/m5nr/ontology?source=NOG")
+list.nog <- fromJSON(raw.nog)
+nog <- rbind.fill(lapply(list.nog$data, as.data.frame))
+```

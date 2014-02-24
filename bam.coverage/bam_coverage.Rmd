@@ -1,0 +1,56 @@
+Create coverage plots from BAM files
+========================================================
+
+Load the needed packages. The Rsamtools package can be used to interface with BAM files, which are used to store read mappings.
+```{r load packages, message=F}
+#source("http://bioconductor.org/biocLite.R")
+#biocLite("Rsamtools")
+library("Rsamtools")
+library("ggplot2")
+```
+
+Load the gene positions within each sequenced instert. 
+```{r load_gene}
+gpos <- read.delim("data/gene.position.txt", header = T)
+```
+
+Making a function that extracts the covrage profile for a specific reference sequence in a BAM file. The BAM files contains all mappings (i.e. to all different inserts) for each sample, but we need to extract the mappings to a particular sequenced insert. The BAM file needs to be sorted and indexed.
+```{r function}
+extcov <- function(bam, index, gene, start=1, end=10000){
+  which <- GRanges(seqnames = gene,  IRanges(start, end))
+  param <- ScanBamParam(which = which, what=scanBamWhat())
+  Bam <- scanBam(file = bam, index = index, param = param)
+  IRanges <- IRanges(start = Bam[[1]][["pos"]], width=Bam[[1]][["qwidth"]])
+  TempCov <- coverage(IRanges)
+  position <- NA
+  coverage <- NA
+  if (length(TempCov) > 0){
+    Peaks <- slice(TempCov, 0)
+    position <- seq(start(Peaks[1]), end(Peaks[1]))
+    coverage <- as.integer(Peaks[[1]])
+  }
+  id <- gsub("data/", "", bam)
+  id <- gsub(".bam", "", id)
+  out <- cbind.data.frame(position, coverage, id)
+  colnames(out) <- c("Position", "Coverage", "Sample")
+  return(out)
+}
+```
+
+Load the coverage data associated with a specific gene. Change the `gene` variable to look at another gene.
+```{r load_bam}
+gene <- "MA_ERM_03"
+
+AAV.3.12 <- extcov(bam = "data/AAV-3-12.bam", index = "data/AAV-3-12", gene = gene)  
+```
+
+Combine the data into a nice plot. I use the `annotate` function of `ggplot2` to mark the position of the resistance gene.
+```{r plot1, fig.height=6, fig.width=10}
+gs <- subset(gpos, Gene == gene)
+ah <- max(AAV.3.12$Coverage)/20
+
+ggplot(AAV.3.12, aes(x = Position, y = Coverage, color = Sample)) + 
+  geom_line(lwd = 1) + 
+  annotate("rect", xmin = gs$Start, xmax = gs$End, ymin = -ah-ah/10, ymax = -ah/10,  alpha = .3) +
+  annotate("text", x = gs$Start + (gs$End - gs$Start)/2, y = -ah/10-ah/2, label = gene) 
+```
